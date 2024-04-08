@@ -5,7 +5,7 @@ Make sure you are in the correct directory to run this script, e.g.,:
 .. code-block:: python
 
     import os
-    os.chdir("C:/Code/visualization-tool/data/blender")
+    os.chdir("C:/Code/blender_utils")
 
 To run this file type:
 .. code-block:: python
@@ -47,7 +47,13 @@ def create_plane_from_edges():
     for ii in range(2):
         bpy.ops.object.editmode_toggle()
 
-    vertices = [vv.co for vv in bpy.context.active_object.data.vertices if vv.select]
+    vertices = []
+
+    for vv in bpy.context.active_object.data.vertices:
+        if not vv.select:
+            continue
+        vertices.append(obj.matrix_world @ vv.co)
+
     if len(vertices) != 3:
         raise ValueError(f"Got {len(vertices)} points. Wrong amount to define a plane.")
 
@@ -78,13 +84,39 @@ def create_plane_from_edges():
     print(f"New plane of size {bpy.context.object.scale[ii]} created")
 
 
-# def bisect_object_with_plane():
-if True:
-    print("Cutting object with plane.")
-    obj = bpy.context.active_object
+def bisect_object_with_plane():
+    print("Cutting object with plane...")
+    scene_objects = bpy.context.selected_objects
+    if len(scene_objects) != 2:
+        raise ValueError("Not exactly 2 many objects selected.")
 
-    print("Cut completed created")
-    pass
+    if len(scene_objects[0].data.vertices) == 4:
+        plane = scene_objects[0]
+        # obj = scene_objects[1]
+    elif len(scene_objects[1].data.vertices) == 4:
+        plane = scene_objects[1]
+        # obj = scene_objects[0]
+    else:
+        raise ValueError(
+            "Active object does not have 4 vertices as expected of a plane."
+        )
+
+    plane.select_set(False)
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.mesh.select_all(action="SELECT")
+
+    base_normal = mathutils.Vector([0, 0, 1.0])
+    plane_normal = plane.matrix_world.to_3x3().normalized() @ base_normal
+
+    bpy.ops.mesh.bisect(
+        plane_co=plane.matrix_world.translation,
+        plane_no=plane_normal,
+        use_fill=True,
+        clear_outer=False,
+    )
+
+    bpy.ops.object.editmode_toggle()
+    print("Cutting succesful.")
 
 
 if __name__ == "__main__":
